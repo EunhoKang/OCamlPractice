@@ -14,3 +14,12 @@ let rec length l =
   | hd::tl -> 1 + length tl
 
 let rec powerset l = makeSubset [] l ((length l)-1);;
+
+(*
+let rec powerset l = 
+	match l with 
+	| [] -> [[]]
+	| hd :: tl -> 
+		let powerset_tl = powerset tl in 
+		(map (fun s -> hd :: s) powerset_tl) @ powerset_tl  
+*)
