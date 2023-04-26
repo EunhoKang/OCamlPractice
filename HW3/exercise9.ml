@@ -7,52 +7,61 @@ type formula = TRUE | FALSE
 and expr = NUM of int
 | PLUS of expr * expr
 | MINUS of expr * expr
-and value = Int of int | Bool of bool
 
-
-let rec calc : expr -> value
+let rec calc : expr -> expr
 =fun ex ->
   match ex with
-  | NUM (e) -> Int e
-  | PLUS (e1, e2) -> 
+  | NUM e -> NUM e
+  | PLUS (e1, e2) -> ( 
     let i1 = calc e1 in
     let i2 = calc e2 in
     match i1, i2 with
-    | Int i1, Int i2 -> Int (i1 + i2)
-  | MINUS (e1, e2) -> 
+    | NUM i1, NUM i2 -> NUM (i1 + i2)
+    | _ -> NUM 0
+    )
+  | MINUS (e1, e2) -> (
     let i1 = calc e1 in
     let i2 = calc e2 in
     match i1, i2 with
-    | Int i1, Int i2 -> Int (i1 - i2)
+    | NUM i1, NUM i2 -> NUM (i1 - i2)
+    | _ -> NUM 0
+  )
 
-let rec eval : formula -> value =
+let rec eval : formula -> formula
+=fun fm ->
   match fm with
-  | Bool (TRUE) -> Bool (TRUE)
-  | FALSE -> Bool (FALSE) 
-  | NOT (f) -> 
-    let v = eval v in
+  | TRUE -> TRUE
+  | FALSE -> FALSE
+  | NOT (f) -> (
+    let v = eval f in
     match v with
-    | Bool (TRUE) -> Bool (FALSE) 
-    | Bool (FALSE)  -> Bool (TRUE)
-  | ANDALSO (f1, f2) ->
+    | TRUE -> FALSE
+    | FALSE -> TRUE
+    | _ -> TRUE
+  )
+  | ANDALSO (f1, f2) -> (
     let v1 = eval f1 in
     let v2 = eval f2 in
     match v1, v2 with
-    | Bool (TRUE), Bool (TRUE) -> Bool (TRUE)
-    | _ -> Bool (FALSE) 
-  | ORELSE (f1, f2) ->
+    | TRUE, TRUE -> TRUE
+    | _ -> FALSE
+  )
+  | ORELSE (f1, f2) -> (
     let v1 = eval f1 in
     let v2 = eval f2 in
     match v1, v2 with
-    | Bool (FALSE) , Bool (FALSE)  -> Bool (FALSE) 
-    | _ -> Bool (TRUE)
-  | IMPLY (f1, f2) ->
+    | FALSE, FALSE -> FALSE
+    | _ -> TRUE
+  )
+  | IMPLY (f1, f2) -> (
     let v1 = eval f1 in
     let v2 = eval f2 in
     match v1, v2 with
-    | Bool (TRUE), Bool (FALSE) -> Bool (FALSE)
-    | _ -> Bool (TRUE)
-  | LESS (e1, e2) ->
+    | TRUE, FALSE-> FALSE
+    | _ -> TRUE
+  )
+  | LESS (e1, e2) -> (
     let i1 = calc e1 in
     let i2 = calc e2 in
-    if e1 < e2 then Bool (TRUE) else Bool (FALSE)
+    if i1 < i2 then TRUE else FALSE
+  );;
