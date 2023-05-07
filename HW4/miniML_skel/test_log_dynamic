@@ -1,0 +1,71 @@
+$ ./run -dynamic test_dynamic/chain.m
+11
+
+$ ./run -dynamic test_dynamic/compare.m
+10
+20
+1
+
+$ ./run -dynamic test_dynamic/dfact.m
+10
+3840
+
+$ ./run -dynamic test_dynamic/digitsum.m
+1123 
+7
+
+$ ./run -dynamic test_dynamic/div0.m
+0
+Fatal error: exception Lang.UndefinedSemantics
+
+$ ./run -dynamic test_dynamic/double.m
+5
+10
+
+$ ./run -dynamic test_dynamic/evenodd.m
+0
+
+$ ./run -dynamic test_dynamic/factorial.m
+10
+3628800
+
+$ ./run -dynamic test_dynamic/modular.m
+1034
+34
+14
+
+$ ./run -dynamic test_dynamic/oddeven.m
+1
+
+$ ./run -dynamic test_dynamic/proc1.m
+55
+
+$ ./run -dynamic test_dynamic/proc2.m
+55
+
+$ ./run -dynamic test_dynamic/proc3.m
+0
+
+$ ./run -dynamic test_dynamic/proc6.m
+8
+
+$ ./run -dynamic test_dynamic/scope1.m
+5
+
+$ ./run -dynamic test_dynamic/scope2.m
+6
+
+$ ./run -dynamic test_dynamic/scope3.m
+5
+
+$ ./run -dynamic test_dynamic/scope4.m
+2
+
+$ ./run -dynamic test_dynamic/state1.m
+-1
+
+$ ./run -dynamic test_dynamic/state3.m
+0
+
+$ ./run -dynamic test_dynamic/uninit.m
+Fatal error: exception Failure("c is unbound in Env")

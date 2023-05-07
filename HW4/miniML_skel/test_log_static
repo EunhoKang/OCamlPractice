@@ -1,0 +1,89 @@
+$ ./run -static test_static/bin2dec.m
+1011
+11
+
+$ ./run -static test_static/chain.m
+11
+
+$ ./run -static test_static/compare.m
+10
+30
+1
+
+$ ./run -static test_static/dfact.m
+10
+3840
+
+$ ./run -static test_static/digitsum.m
+1123 
+7
+
+$ ./run -static test_static/div0.m
+0
+Fatal error: exception Lang.UndefinedSemantics
+
+$ ./run -static test_static/double.m
+5
+10
+
+$ ./run -static test_static/evenodd.m
+0
+
+$ ./run -static test_static/factorial.m
+10
+3628800
+
+$ ./run -static test_static/modular.m
+1034
+34
+14
+
+$ ./run -static test_static/oddeven.m
+1
+
+$ ./run -static test_static/proc1.m
+55
+
+$ ./run -static test_static/proc2.m
+55
+
+$ ./run -static test_static/proc3.m
+-100
+
+$ ./run -static test_static/proc4.m
+7
+
+$ ./run -static test_static/proc5.m
+12345
+49380
+
+$ ./run -static test_static/proc6.m
+6
+
+$ ./run -static test_static/reverse.m
+12345
+54321
+
+$ ./run -static test_static/scope1.m
+4
+
+$ ./run -static test_static/scope2.m
+5
+
+$ ./run -static test_static/scope3.m
+3
+
+$ ./run -static test_static/scope4.m
+3
+
+$ ./run -static test_static/state1.m
+-1
+
+$ ./run -static test_static/state2.m
+-1
+
+$ ./run -static test_static/state3.m
+0
+
+$ ./run -static test_static/uninit.m
+Fatal error: exception Failure("c is unbound in Env")
