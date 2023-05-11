@@ -5,7 +5,7 @@ type value =
   | Bool of bool 
   | Procedure of var * exp * env 
   | RecProcedure of var * var * exp * env
-	| MRecProcedure of (* complete this definition *) 
+	| MRecProcedure of var * var * exp * var * var * exp * env 
   | Loc of loc
 and loc = int
 and env = (var * value) list
@@ -45,7 +45,8 @@ let new_location () = counter:=!counter+1;!counter
 (* TODO: Implement the eval function. Modify this function only. *)
 (*****************************************************************)
 let rec eval : exp -> env -> mem -> value * mem
-=fun exp env mem -> raise NotImplemented
+=fun exp env mem ->
+  match exp with
   
 (* driver code *)
 let run : program -> value
