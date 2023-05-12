@@ -52,67 +52,86 @@ let rec string_of_mem mem =
 let rec eval : exp -> env -> mem -> value * mem
 =fun exp env mem ->
   match exp with 
-	|CONST n -> Int n
-  |VAR x -> apply_env env x
+	|CONST n -> (Int n, mem)
+  |VAR x -> (apply_env env x, mem)
   |ADD (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, Int n2 -> Int(n1 + n2)
-    |_ -> raise (Failure "Type Error: non-numeric values"))
+    |Int n1, Int n2 -> (Int(n1 + n2), m2)
+    |_ -> raise UndefinedSemantics)
   |SUB (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, Int n2 -> Int (n1 - n2)
-    |_ -> raise (Failure "Type Error: non-numeric values")) 
+    |Int n1, Int n2 -> (Int (n1 - n2), m2)
+    |_ -> raise UndefinedSemantics) 
   |MUL (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, Int n2 -> Int (n1 * n2)
-    |_ -> raise (Failure "Type Error: non-numeric values")) 
+    |Int n1, Int n2 -> (Int (n1 * n2), m2)
+    |_ -> raise UndefinedSemantics) 
   |DIV (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, 0 -> raise (Failure "Error: division-by-zero")) 
-    |Int n1, Int n2 -> Int (n1 * n2)
-    |_ -> raise (Failure "Type Error: non-numeric values")) 
+    |Int n1, 0 -> raise UndefinedSemantics 
+    |Int n1, Int n2 -> (Int (n1 * n2), m2)
+    |_ -> raise UndefinedSemantics) 
   |EQ (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, Int n2 -> if n1 = n2 then Bool true else false
-    |_ -> raise (Failure "Type Error: non-numeric values"))   
+    |Int n1, Int n2 -> 
+      if n1 = n2 then (Bool true, m2) else (Bool false, m2)
+    |_ -> raise UndefinedSemantics)   
   |LT (e1, e2) ->
-    let v1 = eval e1 env mem in
-    let v2 = eval e2 env mem in
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
-    |Int n1, Int n2 -> if n1 = n2 then Bool false else true
-    |_ -> raise (Failure "Type Error: non-numeric values")) 
+    |Int n1, Int n2 -> 
+      if n1 = n2 then (Bool false, m2) else (Bool true, m2)
+    |_ -> raise UndefinedSemantics) 
   |ISZERO e -> 
-    (match eval e env mem with
-    | Int 0 -> Bool true
-    | Int _ -> Bool false
-    | _ -> raise (Failure "Type Error: argument of iszero must be Boolean"))
+    let (v, m) = eval e env mem in
+    (match v with
+    | Int 0 -> (Bool true, m)
+    | Int _ -> (Bool false, m)
+    | _ -> raise UndefinedSemantics)
   |READ -> Int (read_int ())
-  |IF (e1,e2,e3) ->
-    (match eval e1 env mem with 
-    | Bool true -> eval e2 env mem 
-    | Bool false -> eval e3 env mem 
-    | _ -> raise (Failure "Type Error: condition must be Boolean"))
-  |LET (x,e1,e2) ->
-    let v1 = eval e1 env mem in
-    let v = eval (extend_env (x,v1) env) e2 in v
-  |LETREC (x1,x2,e1,e2) ->
-    let v1 = eval e1 env mem in
-    let v = eval (extend_env (x,v1) env) e2 in v    
-  |LETMREC (x1,x2,e1,e2) ->
-    let v1 = eval e1 env mem in
-    let v = eval (extend_env (x,v1) env) e2 in v  
-  |PROC (x,e) ->
-    let v1 = eval e1 env mem in
+  |IF (e1, e2, e3) ->
+    let (v1, m1) = eval e1 env mem in
+    (match v1 with 
+    | Bool true -> eval e2 env m1
+    | Bool false -> eval e3 env m1 
+    | _ -> raise UndefinedSemantics)
+  |LET (x, e1, e2) ->
+    let (v1, m1) = eval e1 env mem in
+    let env1 = extend_env (x, v1) env
+    let (v, m) = eval e2 env1 m1 in (v, m)
+  |LETREC (f, x, e1, e2) ->
+    let (v1, m1) = eval e1 env mem in
+    let env1 = extend_env (f, v1) (extend_env (x, v1) env) in
+    let (v, m) = eval e2 env1 m1 in (v, m)   
+  |LETMREC (f, xf, ef, g, xg, eg, e) ->
+    let (vf, mf) = eval ef env mem in
+    let (vg, mg) = eval eg env mf in
+    let envf = extend_env (f, vf) (extend_env (xf, vf) env) in
+    let env1 = extend_env (g, vg) (extend_env (xg, vg) envf) in
+    let (v, m) = eval e env1 mg in (v, m)  
+  |PROC (x, e) ->
+    let (v1, m1) = eval x env mem in 
+    let (v2, m2) = eval e env m1 in (v2, m2)
+  |CALL (e1, e2) ->
+    let (v1, m1) = eval e1 env mem in
+    let (v2, m2) = eval e2 env mem in
+    let env1 = extend_env (v1, v2) env in
+    let (v, m) = eval e2, env1, m2 in (v, m)
+  |NEWREF (e) ->
+    let (v, m) = eval e env mem in
+    let nloc = new_location in
+    
 
     (* driver code *)
 let run : program -> value
