@@ -77,7 +77,7 @@ let rec eval : exp -> env -> mem -> value * mem
     let (v2, m2) = eval e2 env m1 in
     (match v1, v2 with
     |Int n1, Int 0 -> raise UndefinedSemantics 
-    |Int n1, Int n2 -> (Int (n1 * n2), m2)
+    |Int n1, Int n2 -> (Int (n1 / n2), m2)
     |_ -> raise UndefinedSemantics) 
   |EQ (e1, e2) ->
     let (v1, m1) = eval e1 env mem in
@@ -93,7 +93,7 @@ let rec eval : exp -> env -> mem -> value * mem
     |Int n1, Int n2 -> 
       if n1 = n2 then (Bool false, m2) else (Bool true, m2)
     |_ -> raise UndefinedSemantics) 
-  |ISZERO e -> 
+  |ISZERO (e) -> 
     let (v, m) = eval e env mem in
     (match v with
     | Int 0 -> (Bool true, m)
@@ -111,16 +111,12 @@ let rec eval : exp -> env -> mem -> value * mem
     let env1 = extend_env (x, v1) env in
     let (v, m) = eval e2 env1 m1 in (v, m)
   |LETREC (f, x, e1, e2) ->
-    let (v1, m1) = eval e1 env mem in
     let env1 = extend_env (f, Procedure(x, e1)) env in
-    let env2 = extend_env (x, v1) env1 in
-    let (v, m) = eval e2 env2 m1 in (v, m)
+    let (v, m) = eval e2 env1 mem in (v, m)
   |LETMREC (f, x, ef, g, y, eg, e) ->
-    let (vf, mf) = eval ef env mem in
     let envf = extend_env (f, Procedure(x, ef)) env in
-    let (vg, mg) = eval eg envf mf in
-    let env1 = extend_env (g, Procedure(y, eg)) envf in
-    let (v, m) = eval e env1 mg in (v, m)
+    let envg = extend_env (g, Procedure(y, eg)) envf in
+    let (v, m) = eval e envg mem in (v, m)
   |PROC (x, e) -> (Procedure (x, e), mem)
   |CALL (e1, e2) ->
     let (v1, m1) = eval e1 env mem in
@@ -132,7 +128,7 @@ let rec eval : exp -> env -> mem -> value * mem
   |NEWREF (e) ->
     let l = new_location () in
     let (v, m) = eval e env mem in 
-    (v, (extend_mem (l, v) m))
+    (Loc (l), (extend_mem (l, v) m))
   |DEREF (e) ->
     let (l, m) = eval e env mem in
     (match l with
@@ -140,10 +136,10 @@ let rec eval : exp -> env -> mem -> value * mem
     |_ -> raise UndefinedSemantics)
   |SETREF (e1, e2) ->
     let (l, m1) = eval e1 env mem in
+    let (v, m2) = eval e2 env m1 in
     (match l with
-    |Int l ->
-      let (v, m2) = eval e2 env m1 in
-      (v,(extend_mem (Loc l, v) m2))
+    |Loc (loc) ->
+      (v, (extend_mem (loc, v) m2))
     |_ -> raise UndefinedSemantics)
   |SEQ (e1, e2) ->
     let (v1, m1) = eval e1 env mem in
