@@ -95,7 +95,110 @@ let rec eval : program -> env -> mem -> (value * mem)
 		let v, mem' = eval e env mem in
 		let _ = print_endline (value2str v) in
 		(v, gc(env,mem')) (* Do not modify *) 
-	| _ -> raise NotImplemented (* TODO *)
+	|SKIP -> (Unit, mem)
+	|TRUE -> (Bool true, mem)
+	|FALSE -> (Bool false, mem)
+	|CONST n -> (Int n, mem)
+	|VAR x -> (apply_env env x, mem)
+	|ADD (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int n2 -> (Int(n1 + n2), m2)
+		|_ -> raise UndefinedSemantics)
+	|SUB (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int n2 -> (Int (n1 - n2), m2)
+		|_ -> raise UndefinedSemantics) 
+	|MUL (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int n2 -> (Int (n1 * n2), m2)
+		|_ -> raise UndefinedSemantics) 
+	|DIV (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int 0 -> raise UndefinedSemantics 
+		|Int n1, Int n2 -> (Int (n1 / n2), m2)
+		|_ -> raise UndefinedSemantics)  
+	|LE (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int n2 -> 
+			if n1 <= n2 then (Bool false, m2) else (Bool true, m2)
+		|_ -> raise UndefinedSemantics) 
+	|EQ (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in
+		(match v1, v2 with
+		|Int n1, Int n2 -> 
+			if n1 = n2 then (Bool true, m2) else (Bool false, m2)
+		|_ -> raise UndefinedSemantics)  
+	|NOT (e) -> 
+		let (v, m) = eval e env mem in
+		(match v with
+		| Bool true -> (Bool false, m)
+		| Bool false -> (Bool true, m)
+		| _ -> raise UndefinedSemantics)
+	|IF (e1, e2, e3) ->
+		let (v1, m1) = eval e1 env mem in
+		(match v1 with 
+		| Bool true -> eval e2 env m1
+		| Bool false -> eval e3 env m1 
+		| _ -> raise UndefinedSemantics)
+	|WHILE (e1, e2) -> 
+		let (v1, m1) = eval e1 env mem in
+		(match v1 with
+		| Bool true -> 
+		(let (v2, m2) = eval e2 env m1 in
+		eval WHILE (e1, e2) env m2)
+		| Bool false -> (Unit, m1) 
+		| _ -> raise UndefinedSemantics)
+	|LET (v, e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let env1 = extend_env (v, v1) env in
+		let (v, m) = eval e2 env1 m1 in (v, m)
+	|PROC (vl, e) -> (Procedure (vl, e, env), mem)
+	|CALLV (e, el) ->
+		let (v1, m1) = eval e env mem in
+		let (v, m) = eval el env mem in
+		(match v1 with
+		|Procedure (x, e, env) -> 
+			(eval e (extend_env (x, v) env) mem)
+		|_ -> raise UndefinedSemantics)
+	|CALLR (e, vl) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v, m) = eval e2 env mem in
+		(match v1 with
+		|Procedure (x, e) -> 
+			(eval e (extend_env (x, v) env) mem)
+		|_ -> raise UndefinedSemantics)
+	|ASSIGN (v, e) ->
+		let l = new_location () in
+		let (v, m) = eval e env mem in 
+		(Loc (l), (extend_mem (l, v) m))
+	|RECORD (vel) -> (*RECORD*)
+		let l = new_location () in
+		let (v, m) = eval e env mem in 
+		(Loc (l), (extend_mem (l, v) m))
+	|FIELD (e, v) ->
+		let l = new_location () in
+		let (v, m) = eval e env mem in 
+		(Loc (l), (extend_mem (l, v) m))
+	|ASSIGNF (e1, v ,e2) ->
+		let l = new_location () in
+		let (v, m) = eval e env mem in 
+		(Loc (l), (extend_mem (l, v) m))
+	|SEQ (e1, e2) ->
+		let (v1, m1) = eval e1 env mem in
+		let (v2, m2) = eval e2 env m1 in (v2, m2)
+	|BEGIN (e) ->
+		let (v, m) = eval e env mem in (v, m)
 
 
 let run : program -> bool -> bool -> unit 
