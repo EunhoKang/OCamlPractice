@@ -99,7 +99,7 @@ let rec eval : program -> env -> mem -> (value * mem)
 	|TRUE -> (Bool true, mem)
 	|FALSE -> (Bool false, mem)
 	|CONST n -> (Int n, mem)
-	|VAR x -> (apply_env env x, mem)
+	|VAR x -> (apply_mem mem (apply_env env x), mem)
 	|ADD (e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
 		let (v2, m2) = eval e2 env m1 in
@@ -155,45 +155,52 @@ let rec eval : program -> env -> mem -> (value * mem)
 		let (v1, m1) = eval e1 env mem in
 		(match v1 with
 		| Bool true -> 
-		(let (v2, m2) = eval e2 env m1 in
-		eval WHILE (e1, e2) env m2)
+		let (v2, m2) = eval e2 env m1 in
+		(eval (WHILE (e1, e2)) env m2)
 		| Bool false -> (Unit, m1) 
 		| _ -> raise UndefinedSemantics)
 	|LET (v, e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
-		let env1 = extend_env (v, v1) env in
-		let (v, m) = eval e2 env1 m1 in (v, m)
+		let l = new_location() in
+		let newe = extend_env (v, l) env in
+		let (v, m) = eval e2 newe (extend_mem (l, v1) m1) in 
+		(v, m)
 	|PROC (vl, e) -> (Procedure (vl, e, env), mem)
-	|CALLV (e, el) ->
-		let (v1, m1) = eval e env mem in
-		let (v, m) = eval el env mem in
-		(match v1 with
-		|Procedure (x, e, env) -> 
-			(eval e (extend_env (x, v) env) mem)
-		|_ -> raise UndefinedSemantics)
+	|CALLV (e, el) -> (*here*)
+		let (list, m) = eval e env mem in
+		match el with
+		| [] -> (eval e env mem)
+		| hd::tl -> 
+			let (v1, m1) = eval hd env mem in
+			let l = new_location() in
+			(eval (CALLV (e, tl)) (extend_env (hd, l) env) (extend_mem (l, v1) m1))
 	|CALLR (e, vl) ->
-		let (v1, m1) = eval e1 env mem in
-		let (v, m) = eval e2 env mem in
-		(match v1 with
-		|Procedure (x, e) -> 
-			(eval e (extend_env (x, v) env) mem)
-		|_ -> raise UndefinedSemantics)
+		let (v, m) = eval e env mem in
+		(match vl with
+		| [] -> (eval e env mem)
+		| hd::tl -> 
+			let y1 = apply_env env hd in
+			(eval (CALLR (e, tl)) (extend_env (hd,y1) env) m))
 	|ASSIGN (v, e) ->
 		let l = new_location () in
 		let (v, m) = eval e env mem in 
 		(Loc (l), (extend_mem (l, v) m))
-	|RECORD (vel) -> (*RECORD*)
-		let l = new_location () in
-		let (v, m) = eval e env mem in 
-		(Loc (l), (extend_mem (l, v) m))
+	|RECORD (vel) ->
+		match vel with
+		| [] -> (Record (), mem)
+		| hd::tl -> 
+			let l = new_location () in
+			let (v1, m1) = eval hd env mem in 
+			( RECORD (tl), (extend_mem (l, v1) m1))
 	|FIELD (e, v) ->
-		let l = new_location () in
-		let (v, m) = eval e env mem in 
-		(Loc (l), (extend_mem (l, v) m))
+		let (r, m1) = eval e env mem in
+		let l = apply_env env r in 
+		(apply_mem m1 l, m1)
 	|ASSIGNF (e1, v ,e2) ->
-		let l = new_location () in
-		let (v, m) = eval e env mem in 
-		(Loc (l), (extend_mem (l, v) m))
+		let (r, m1) = eval e1 env mem in
+		let (v1, m2) = eval e2 env m1 in
+		let l = apply_env v r in 
+		(v1, (extend_mem (apply_mem m2 l, v1) m2))
 	|SEQ (e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
 		let (v2, m2) = eval e2 env m1 in (v2, m2)
