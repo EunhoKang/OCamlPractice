@@ -79,13 +79,13 @@ let string_of_mem mem =
 exception NotImplemented
 exception UndefinedSemantics
 (* if the following variable is set true, gc will work (otherwise, gc simply returns a given memory). *)
-let remove_garbage = ref false 
+let remove_garbage = ref false
 
 let gc: env * mem -> mem
 = fun (env, mem) ->
 	if (not !remove_garbage) then mem 
-	else 
-		raise NotImplemented (* TODO *)
+	else raise NotImplemented
+		
 
 let rec eval : program -> env -> mem -> (value * mem)
 =fun pgm env mem ->  
@@ -130,15 +130,19 @@ let rec eval : program -> env -> mem -> (value * mem)
 		let (v2, m2) = eval e2 env m1 in
 		(match v1, v2 with
 		|Int n1, Int n2 -> 
-			if n1 <= n2 then (Bool false, m2) else (Bool true, m2)
-		|_ -> raise UndefinedSemantics) 
+			if n1 <= n2 then (Bool true, m2) else (Bool false, m2)
+		|_ -> raise UndefinedSemantics)  
 	|EQ (e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
 		let (v2, m2) = eval e2 env m1 in
 		(match v1, v2 with
 		|Int n1, Int n2 -> 
 			if n1 = n2 then (Bool true, m2) else (Bool false, m2)
-		|_ -> raise UndefinedSemantics)  
+		|Bool b1, Bool b2 -> 
+			if b1 = b2 then (Bool true, m2) else (Bool false, m2)
+		|Unit, Unit -> 
+			(Bool true, m2)
+		|_ -> (Bool false, m2))  
 	|NOT (e) -> 
 		let (v, m) = eval e env mem in
 		(match v with
@@ -152,55 +156,81 @@ let rec eval : program -> env -> mem -> (value * mem)
 		| Bool false -> eval e3 env m1 
 		| _ -> raise UndefinedSemantics)
 	|WHILE (e1, e2) -> 
-		let (v1, m1) = eval e1 env mem in
-		(match v1 with
+		let (tf, m0) = eval e1 env mem in
+		(match tf with
 		| Bool true -> 
-		let (v2, m2) = eval e2 env m1 in
-		(eval (WHILE (e1, e2)) env m2)
-		| Bool false -> (Unit, m1) 
+		let (v1, m1) = eval e2 env m0 in
+		let (v2, m2) = eval (WHILE (e1, e2)) env m1 in
+		(v2, m2)
+		| Bool false -> (Unit, m0) 
 		| _ -> raise UndefinedSemantics)
-	|LET (v, e1, e2) ->
+	|LET (x, e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
 		let l = new_location() in
-		let newe = extend_env (v, l) env in
-		let (v, m) = eval e2 newe (extend_mem (l, v1) m1) in 
+		let new_env = extend_env (x, l) env in
+		let new_mem = extend_mem (l, v1) m1 in
+		let (v, m) = eval e2 new_env new_mem in 
 		(v, m)
 	|PROC (vl, e) -> (Procedure (vl, e, env), mem)
-	|CALLV (e, el) -> (*here*)
-		let (list, m) = eval e env mem in
-		match el with
-		| [] -> (eval e env mem)
-		| hd::tl -> 
-			let (v1, m1) = eval hd env mem in
-			let l = new_location() in
-			(eval (CALLV (e, tl)) (extend_env (hd, l) env) (extend_mem (l, v1) m1))
-	|CALLR (e, vl) ->
-		let (v, m) = eval e env mem in
-		(match vl with
-		| [] -> (eval e env mem)
-		| hd::tl -> 
-			let y1 = apply_env env hd in
-			(eval (CALLR (e, tl)) (extend_env (hd,y1) env) m))
-	|ASSIGN (v, e) ->
+	|CALLV (e0, el) ->
+		let (proc, pm) = eval e0 env mem in
+		(match proc with
+		|Procedure (xl, e, ev) ->
+			match (xl, el) with
+			|(x::xtl, e1::etl) ->
+				let (v, m) = eval e1 env pm in
+				let l = new_location () in
+				let new_env = (extend_env (x, l) ev) in
+				let new_mem = (extend_mem (l, v) pm) in
+				(eval (CALLV ((PROC (xtl, e)), etl)) new_env new_mem)
+			|([], []) -> (eval e ev pm)
+			|_ -> raise UndefinedSemantics
+		|_ -> raise UndefinedSemantics)
+	|CALLR (e0, vl) ->
+		let (proc, pm) = eval e0 env mem in
+		(match proc with
+		|Procedure (xl, e, ev) ->
+			match (xl, vl) with
+			|(x::xtl, v::vtl) ->
+				let new_env = (extend_env (x, (apply_env env v)) ev) in
+				(eval (CALLR ((PROC (xtl, e)), vtl)) new_env pm)
+			|([], []) -> eval e ev pm
+			|_ -> raise UndefinedSemantics
+		|_ -> raise UndefinedSemantics)
+	|ASSIGN (x, e) ->
 		let l = new_location () in
 		let (v, m) = eval e env mem in 
-		(Loc (l), (extend_mem (l, v) m))
+		let new_loc = apply_env env x in
+		let new_mem = (extend_mem (new_loc, v) m) in
+		(v, (extend_mem (l, v) new_mem))
 	|RECORD (vel) ->
-		match vel with
-		| [] -> (Record (), mem)
-		| hd::tl -> 
+		(match vel with
+		|(x,e)::tl -> 
 			let l = new_location () in
-			let (v1, m1) = eval hd env mem in 
-			( RECORD (tl), (extend_mem (l, v1) m1))
-	|FIELD (e, v) ->
-		let (r, m1) = eval e env mem in
-		let l = apply_env env r in 
-		(apply_mem m1 l, m1)
-	|ASSIGNF (e1, v ,e2) ->
-		let (r, m1) = eval e1 env mem in
-		let (v1, m2) = eval e2 env m1 in
-		let l = apply_env v r in 
-		(v1, (extend_mem (apply_mem m2 l, v1) m2))
+			let (v, m) = eval e env mem in
+			let new_env = (extend_env (x, l) env) in
+			(eval (RECORD (tl)) new_env (extend_mem (l, v) m))
+		|[] -> 
+			match env with
+			|hd::tl -> (Record (env), mem)
+			|_ -> (Unit, mem)
+		|_ -> raise UndefinedSemantics)
+	|FIELD (e, x) ->
+		(let (r, m1) = eval e env mem in
+		match r with
+		|Record (list) ->
+			let l = apply_env list x in 
+			(apply_mem m1 l, m1)
+		|_ -> raise UndefinedSemantics)
+	|ASSIGNF (e1, x ,e2) ->
+		(let (r, m1) = eval e1 env mem in
+		match r with
+		|Record (list) ->
+			let (v, m2) = eval e2 env m1 in
+			let rx = apply_env list x in 
+			let new_mem = (extend_mem (rx, v) m2) in
+			(v, new_mem)
+		|_ -> raise UndefinedSemantics)
 	|SEQ (e1, e2) ->
 		let (v1, m1) = eval e1 env mem in
 		let (v2, m2) = eval e2 env m1 in (v2, m2)
